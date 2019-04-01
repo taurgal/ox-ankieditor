@@ -1,33 +1,26 @@
 [[http://melpa.org/#/anki-editor][file:http://melpa.org/packages/anki-editor-badge.svg]]
 
-anki-editor -- Emacs minor mode for making Anki cards with Org
-
-/Since I'm not a native English speaker, feel free to correct me if
-there were any ambiguity or grammatical mistakes ;-)/
+ox-ankieditor -- Org mode exporter to anki based on anki-editor
 
 * Installation
 
   *Requirements*
   - [[https://github.com/FooSoft/anki-connect#installation][anki-connect]],
-    an Anki add-on required by this package to interact with Anki.
+    An Anki add-on required by this package to interact with Anki.
+  - [[https://github.com/louietan/anki-editor][anki-editor]] (this dependance shall eventually be removed)
   - curl
-
-  If you have [[http://melpa.org/][MELPA]] in your =package-archives=,
-  just =M-x package-install RET anki-editor RET=, or install it
-  manually by downloading and visiting [[./anki-editor.el][anki-editor.el]] in your
-  emacs buffer, and =M-x package-install-from-buffer RET=.
+    Utility used for socket communication.
 
 * Usage
 
 ** The Layout of Notes
 
-   Now you can compose Anki notes in Org syntax, e.g. lists, code
-   examples, tables, embedded latex, when being submitted to Anki,
-   they will be converted to HTML by Org-mode's HTML backend with
-   specific markers (e.g. latex) translated to Anki style.
+   Since this exporter is derived from the standard html exporter it
+   should support all the nice features of org-mode.
 
-   The structure of a note is as follow, which is inspired by
-   =org-drill=. More examples can be found in [[./examples.org][examples.org]].
+   The structure of a note is the same as that of =anki-editor= which is
+   itself inspired by =org-drill=. More examples can be found in
+   [[./examples.org][examples.org]].
 
    #+BEGIN_SRC org
      ,* Idiom                                                        :vocab:idioms:
@@ -42,17 +35,22 @@ there were any ambiguity or grammatical mistakes ;-)/
         it's raining very hard
    #+END_SRC
 
-   - An Anki note is an Org entry with =ANKI_NOTE_TYPE= property
+   - An Anki note is an Org entry with a =ANKI_NOTE_TYPE= property.
    - Anki tags can be set in two ways
      1. With "ANKI_TAGS" property, multiple tags are seperated with space
      2. With Org tags [fn:1], this could be turned off if you would like to keep Org tags separated from Anki tags
    - Other necessary information (e.g. deck, note type) of a note is
      put in the property drawer of the entry
-     - As the value of =ANKI_DECK= is retrieved with inheritance, you
-       don't have to set it per note, instead, you could create a deck
-       entry with this property set and put note entries under it, or
-       set it per file by ~#+PROPERTY: ANKI_DECK YourDeck~
-   - Child entries of a note entry are fields
+     - the =ANKI_DECK= property is retrieved with inheritance so you
+       don't have to set it per note. For example you could
+       + create a deck entry with this property set and put note
+         entries under it;
+       + or set it as a global property by inserting ~#+PROPERTY:
+         ANKI_DECK YourDeck~ near the top of the file.
+   - Child entries of a note entry are fields. More precisely
+     - The field name is retrieved from the entry title
+     - It is an error if the entry title it not a field name
+     - 
 
 ** Commands
 
