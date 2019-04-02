@@ -1,5 +1,3 @@
-[[http://melpa.org/#/anki-editor][file:http://melpa.org/packages/anki-editor-badge.svg]]
-
 ox-ankieditor -- Org mode exporter to anki based on anki-editor
 
 * Installation
@@ -95,11 +93,6 @@ ox-ankieditor -- Org mode exporter to anki based on anki-editor
    This package may not work well when you are using certain Anki
    add-ons especially those who extend the builtin Anki note editor to
    automatically fill note field content (e.g. ~Add note id~).
-
-* Demo
-
-  [[./demo.gif]]
-
 
 [fn:1] It should be noted that Org only allows letters, numbers, =_=
 and =@= in a tag but Anki allows more, so you may have to edit you
