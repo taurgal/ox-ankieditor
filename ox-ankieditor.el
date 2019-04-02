@@ -25,7 +25,6 @@
 
 ;; This library implements a HTML back-end for Org generic exporter.
 ;; See Org manual for more information.
-
 ;;; Code:
 
 ;;; Dependencies
@@ -249,7 +248,7 @@ option."
     (funcall queue
              note
              'notesInfo
-             `((notes . ,(vector (alist-get 'note-id note))))
+             `((notes . (,(alist-get 'note-id note))))
              #'org-anki-notesinfo-handler
              )
     (funcall queue note)))
@@ -331,6 +330,13 @@ option."
      handler-list
      )))
 
+(defun anki-editor--anki-connect-action (action &optional params version)
+  (let (a)
+    (when version
+      (push `(version . ,version) a))
+    (when params
+      (push `(params . ,params) a))
+    (push `(action . ,action) a)))
 
 (defun anki-editor--anki-connect-invoke-queue ()
   (let (action-queue)
