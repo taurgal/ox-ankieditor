@@ -135,6 +135,13 @@ See https://apps.ankiweb.net/docs/manual.html#latex-conflicts."
           (when matched (throw 'done latex-code)))))
     latex-code))
 
+(defun anki-editor--wrap-latex (content)
+  "Wrap CONTENT with Anki-style latex markers."
+  (format "<p><div>[latex]</div>%s<div>[/latex]</div></p>" content))
+
+(defun anki-editor--wrap-div (content)
+  (format "<div>%s</div>" content))
+
 (defun anki-editor--ox-latex (latex _contents _info)
   "Transcode LATEX from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual information."
@@ -669,6 +676,10 @@ holding contextual information."
       (condition-case err
           (progn
             (when (< (length fields) 1) (error "Note has no field"))
+            (org-unlogged-message
+             "Processing note %d at position %d"
+             (incf org-ankieditor-current-note-number)
+             (point))
             (anki-editor--push-note note)
             (push '(status . success) note)
             )
@@ -815,15 +826,16 @@ will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
    (let* ((org-footnote-section nil)
-          (org-buffer-name (buffer-name)))
-     (setq org-ankieditor-note-status-list nil)
+          (org-buffer-name (buffer-name))
+          (org-ankieditor-current-note-number 0)
+          org-ankieditor-note-status-list)
      (org-with-wide-buffer
       (anki-editor-map-note-entries
        (lambda ()
          (anki-editor--clear-failure-reason)
          (unless (org-entry-get (point) "CUSTOM_ID")
            (org-entry-put (point) "CUSTOM_ID" (org-id-uuid))))
-         ))
+       ))
      (org-export-to-buffer 'anki "*Org Anki Export*"
        async subtreep visible-only body-only ext-plist
        (lambda ()
@@ -847,12 +859,14 @@ is non-nil."
              "\n"))
            (org-mode)
            )))
+     (org-unlogged-message "%s" "Inserting notes status in org properties")
      (with-current-buffer org-buffer-name
        (sort org-ankieditor-note-status-list (lambda (a b)
                                          (> (alist-get 'begin a)
                                             (alist-get 'begin b))))
       (mapcar #'insert-note-status-in-drawer org-ankieditor-note-status-list)
-      )))
+      )
+     (org-unlogged-message "%s" "Done")))
 
 (defun insert-note-status-in-drawer (note)
   (let* ((status (alist-get 'status note))
