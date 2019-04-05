@@ -839,7 +839,8 @@ is non-nil."
            (insert
             (mapconcat
              (lambda (note)
-               (format "   - [[#%s][%s]]"
+               (format "   - [[file:%s::#%s][%s]]"
+                       org-buffer-name
                        (alist-get 'custom-id note)
                        (alist-get 'reason note)))
              failed-notes
