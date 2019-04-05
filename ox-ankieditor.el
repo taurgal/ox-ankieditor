@@ -149,9 +149,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
     (if anki-editor-break-consecutive-braces-in-latex
         (replace-regexp-in-string "}}" "} } " code)
-      
-      )))
-
+      code)))
 
 (defun org-ankieditor--build-fields (heading)
   "Build a list of fields from subheadings of current heading.
@@ -198,7 +196,7 @@ the car being the field name and the cdr the field content."
   :group 'org-export)
 
 
-(defcustom org-anki-checkbox-type 'unicode
+(defcustom org-ankieditor-checkbox-type 'unicode
   "The type of checkboxes to use for HTML export.
 See `org-html-checkbox-types' for for the values used for each
 option."
@@ -215,7 +213,7 @@ option."
   (setcdr (assq 'note-id note) id)
   (and errmsg (push `(reason . ,errmsg) note)))
 
-(defun org-anki-notesinfo-handler (result errmsg action note)
+(defun org-ankieditor-notesinfo-handler (result errmsg action note)
   "Update tags in NOTE"
   (let* ((existing-note (car result))
          (tags-to-add (-difference (-difference (alist-get 'tags note)
@@ -249,7 +247,7 @@ option."
              note
              'notesInfo
              `((notes . (,(alist-get 'note-id note))))
-             #'org-anki-notesinfo-handler
+             #'org-ankieditor-notesinfo-handler
              )
     (funcall queue note)))
 
@@ -371,26 +369,26 @@ option."
 
 
 
-(defcustom org-anki-container-element "div"
+(defcustom org-ankieditor-container-element "div"
   "HTML element to use for wrapping top level sections.
 Can be set with the in-buffer HTML_CONTAINER property or for
 publishing, with :html-container."
   :group 'org-export-anki
   :type 'string)
 
-(defun org-anki-template (contents info)
+(defun org-ankieditor-template (contents info)
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
   contents)
 
-(defun org-anki-inner-template (contents info)
+(defun org-ankieditor-inner-template (contents info)
   "Return body of document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
   (concat "~BEGINNING~\n" contents "\n~END~"))
 
-(defconst org-anki-doctype-alist
+(defconst org-ankieditor-doctype-alist
   '(("html4-strict" . "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\"
 \"http://www.w3.org/TR/html4/strict.dtd\">")
     ("html4-transitional" . "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"
@@ -411,7 +409,7 @@ holding export options."
     ("xhtml5" . "<!DOCTYPE html>"))
   "An alist mapping (x)html flavors to specific doctypes.")
 
-(defcustom org-anki-container-element "div"
+(defcustom org-ankieditor-container-element "div"
   "HTML element to use for wrapping top level sections.
 Can be set with the in-buffer HTML_CONTAINER property or for
 publishing, with :html-container.
@@ -421,7 +419,7 @@ org-info.js for your website."
   :group 'org-export-anki
   :type 'string)
 
-(defcustom org-anki-html5-fancy nil
+(defcustom org-ankieditor-html5-fancy nil
   "Non-nil means using new HTML5 elements.
 This variable is ignored for anything other than HTML5 export.
 
@@ -433,24 +431,24 @@ versions 8 and below."
   :group 'org-export-anki
   :type 'boolean)
 
-(defcustom org-anki-link-use-abs-url nil
+(defcustom org-ankieditor-link-use-abs-url nil
   "Should we prepend relative links with HTML_LINK_HOME?"
   :group 'org-export-anki
   :type 'boolean)
 
-(defcustom org-anki-link-home ""
+(defcustom org-ankieditor-link-home ""
   "Where should the \"HOME\" link of exported HTML pages lead?"
   :group 'org-export-anki
   :type '(string :tag "File or URL"))
 
-(defcustom org-anki-allow-name-attribute-in-anchors nil
+(defcustom org-ankieditor-allow-name-attribute-in-anchors nil
   "When nil, do not set \"name\" attribute in anchors.
 By default, when appropriate, anchors are formatted with \"id\"
 but without \"name\" attribute."
   :group 'org-export-anki
   :type 'boolean)
 
-(defcustom org-anki-divs
+(defcustom org-ankieditor-divs
   '((preamble  "div" "preamble")
     (content   "div" "content")
     (postamble "div" "postamble"))
@@ -472,7 +470,7 @@ org-info.js for your website."
 	       (list :tag "Postamble" (const :format "" postamble)
 		     (string :tag "     id") (string :tag "element"))))
 
-(defconst org-anki-checkbox-types
+(defconst org-ankieditor-checkbox-types
   '((unicode .
      ((on . "&#x2611;") (off . "&#x2610;") (trans . "&#x2610;")))
     (ascii .
@@ -495,23 +493,23 @@ The choices are:
 Note that only the ascii characters implement tri-state
 checkboxes. The other two use the `off' checkbox for `trans'.")
 
-(defcustom org-anki-extension "html"
+(defcustom org-ankieditor-extension "html"
   "The extension for exported HTML files."
   :group 'org-export-anki
   :type 'string)
 
-(defcustom org-anki-footnote-format "<sup>%s</sup>"
+(defcustom org-ankieditor-footnote-format "<sup>%s</sup>"
   "The format for the footnote reference.
 %s will be replaced by the footnote reference itself."
   :group 'org-export-anki
   :type 'string)
 
-(defcustom org-anki-footnote-separator "<sup>, </sup>"
+(defcustom org-ankieditor-footnote-separator "<sup>, </sup>"
   "Text used to separate footnotes."
   :group 'org-export-anki
   :type 'string)
 
-(defcustom org-anki-footnotes-section "<div id=\"footnotes\">
+(defcustom org-ankieditor-footnotes-section "<div id=\"footnotes\">
 <h2 class=\"footnotes\">%s: </h2>
 <div id=\"text-footnotes\">
 %s
@@ -524,7 +522,7 @@ by the footnotes themselves."
   :group 'org-export-anki
   :type 'string)
 
-(defcustom org-anki-format-drawer-function (lambda (_name contents) contents)
+(defcustom org-ankieditor-format-drawer-function (lambda (_name contents) contents)
   "Function called to format a drawer in HTML code.
 
 The function must accept two parameters:
@@ -540,7 +538,7 @@ The default value simply returns the value of CONTENTS."
   :group 'org-export-anki
   :type 'function)
 
-(defcustom org-anki-format-headline-function
+(defcustom org-ankieditor-format-headline-function
   'org-html-format-headline-default-function
   "Function to format headline text.
 
@@ -556,7 +554,7 @@ The function result will be used in the section format string."
   :group 'org-export-anki
   :type 'function)
 
-(defcustom org-anki-format-inlinetask-function
+(defcustom org-ankieditor-format-inlinetask-function
   'org-html-format-inlinetask-default-function
   "Function called to format an inlinetask in HTML code.
 
@@ -573,13 +571,13 @@ The function should return the string to be exported."
   :group 'org-export-anki
   :type 'function)
 
-(defcustom org-anki-indent nil
+(defcustom org-ankieditor-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
   :group 'org-export-anki
   :type 'boolean)
 
-(defcustom org-anki-inline-image-rules
+(defcustom org-ankieditor-inline-image-rules
   '(("file" . "\\.\\(jpeg\\|jpg\\|png\\|gif\\|svg\\)\\'")
     ("http" . "\\.\\(jpeg\\|jpg\\|png\\|gif\\|svg\\)\\'")
     ("https" . "\\.\\(jpeg\\|jpg\\|png\\|gif\\|svg\\)\\'"))
@@ -591,13 +589,13 @@ link's path."
   :type '(alist :key-type (string :tag "Type")
 		:value-type (regexp :tag "Path")))
 
-(defcustom org-anki-table-caption-above t
+(defcustom org-ankieditor-table-caption-above t
   "When non-nil, place caption string at the beginning of the table.
 Otherwise, place it near the end."
   :group 'org-export-anki
   :type 'boolean)
 
-(defcustom org-anki-with-latex org-export-with-latex
+(defcustom org-ankieditor-with-latex org-export-with-latex
   "Non-nil means process LaTeX math snippets.
 
 When set, the exporter will process LaTeX environments and
@@ -620,20 +618,15 @@ e.g. \"tex:mathjax\".  Allowed values are:
 	  (symbol :tag "Convert to image to display math" :value dvipng)))
 
 
-(defun org-anki-note-from-headline (headline contents info)
-  "Construct an alist representing a note from current entry."
-  (goto-char (org-element-property :begin headline))
-  (let* ((org-trust-scanner-tags t)
-         (deck (org-entry-get-with-inheritance anki-editor-prop-deck))
-         (note-id-nil-or-string
-          (org-element-property (intern(concat ":" anki-editor-prop-note-id)) headline))
-         (note-type
-          (org-element-property (intern(concat ":" anki-editor-prop-note-type)) headline))
-         (tags (anki-editor--get-tags))
-         (fields (org-ankieditor--build-fields headline))
-         (custom-id (org-element-property :CUSTOM_ID headline))
-         (begin (org-element-property :begin headline))
-         (note-id (and note-id-nil-or-string (string-to-number note-id-nil-or-string))))
+(defun org-ankieditor-note-from-field-alist (headline deck note-id note-type tags fields)
+  "Construct an alist representing a note from its arguments.
+
+HEADLINE should be the org-element headline correspondng to the
+note, NOTE-ID is nil or he note id as int, NOTE-TYPE is an Anki
+note type, TAGS a list of Anki tags as strings and FIELDS is an
+alist with field names as keys and content strings as values."
+  (let* ((custom-id (org-element-property :CUSTOM_ID headline))
+         (begin (org-element-property :begin headline)))
 
     (unless deck (error "No deck specified"))
     (unless note-type (error "Missing note type"))
@@ -654,99 +647,121 @@ e.g. \"tex:mathjax\".  Allowed values are:
     (anki-editor--create-note note)
     ))
 
-(defun org-anki-headline (headline contents info)
+(defun org-ankieditor-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
 CONTENTS holds the contents of the headline.  INFO is a plist
 holding contextual information."
   (cond
    ((org-element-property (intern (concat ":" anki-editor-prop-note-type)) headline)
-    (let ((note (org-anki-note-from-headline headline contents info)))
-          (condition-case err
-              (progn
-                (anki-editor--push-note note)
-                (push '(status . success) note)
-                )
-                (error
-                 (push '(status . failed) note)
-                 (push `(reason . ,(error-message-string err)) note)))
-          (push note org-anki-note-status-list)
-          )
-    "")
-   ((= (org-element-property :level headline) 1) "")
-   (t
-    (unless (org-element-property :footnote-section-p headline)
-    (let* ((numberedp (org-export-numbered-headline-p headline info))
-           (numbers (org-export-get-headline-number headline info))
-           (level (+ (org-export-get-relative-level headline info)
-                     (1- (plist-get info :html-toplevel-hlevel))))
-           (todo (and (plist-get info :with-todo-keywords)
-                      (let ((todo (org-element-property :todo-keyword headline)))
-                        (and todo (org-export-data todo info)))))
-           (todo-type (and todo (org-element-property :todo-type headline)))
-           (priority (and (plist-get info :with-priority)
-                          (org-element-property :priority headline)))
-           (text (org-export-data (org-element-property :title headline) info))
-           (tags (and (plist-get info :with-tags)
-                      (org-export-get-tags headline info)))
-           (full-text (funcall (plist-get info :html-format-headline-function)
-                               todo todo-type priority text tags info))
-           (contents (or contents ""))
-	   (ids (delq nil
-                      (list (org-element-property :CUSTOM_ID headline)
-                            (org-export-get-reference headline info)
-                            (org-element-property :ID headline))))
-           (preferred-id (car ids))
-           (extra-ids
-	    (mapconcat
-	     (lambda (id)
-	       (org-html--anchor
-		(if (org-uuidgen-p id) (concat "ID-" id) id)
-		nil nil info))
-	     (cdr ids) "")))
-      (if (org-export-low-level-p headline info)
-          ;; This is a deep sub-tree: export it as a list item.
-          (let* ((html-type (if numberedp "ol" "ul")))
-	    (concat
-	     (and (org-export-first-sibling-p headline info)
-		  (apply #'format "<%s class=\"org-%s\">\n"
-			 (make-list 2 html-type)))
-	     (org-html-format-list-item
-                   contents (if numberedp 'ordered 'unordered)
-		   nil info nil
-                   (concat (org-html--anchor preferred-id nil nil info)
-                           extra-ids
-                           full-text)) "\n"
-	     (and (org-export-last-sibling-p headline info)
-		  (format "</%s>\n" html-type))))
-	;; Standard headline.  Export it as a section.
-        (let ((extra-class (org-element-property :HTML_CONTAINER_CLASS headline))
-              (first-content (car (org-element-contents headline))))
-          (format "<%s id=\"%s\" class=\"%s\">%s%s</%s>\n"
-                  (org-html--container headline info)
-                  (concat "outline-container-"
-			  (org-export-get-reference headline info))
-                  (concat (format "outline-%d" level)
-                          (and extra-class " ")
-                          extra-class)
-                  (format "\n<h%d id=\"%s\">%s%s</h%d>\n"
-                          level
-                          preferred-id
-                          extra-ids
-                          (concat
-                           (and numberedp
-                                (format
-                                 "<span class=\"section-number-%d\">%s</span> "
-                                 level
-                                 (mapconcat #'number-to-string numbers ".")))
-                           full-text)
-                          level)
-                  ;; When there is no section, pretend there is an
-                  ;; empty one to get the correct <div
-                  ;; class="outline-...> which is needed by
-                  ;; `org-info.js'.
-                  (if (eq (org-element-type first-content) 'section) contents
-                    (concat (org-html-section first-content "" info) contents))
-                  (org-html--container headline info)))))))))
+    ;; New note
+    (goto-char (org-element-property :begin headline)) ; For property inheritance (deck and tags)
+    (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
+           (note-id-nil-or-string
+            (org-element-property (intern(concat ":" anki-editor-prop-note-id)) headline))
+           (note-id (and note-id-nil-or-string (string-to-number note-id-nil-or-string)))
+           (note-type
+            (org-element-property (intern(concat ":" anki-editor-prop-note-type)) headline))
+           (tags (anki-editor--get-tags))
+           (fields (plist-get info :anki-fields))
+           (note
+            (org-ankieditor-note-from-field-alist
+             headline deck note-id note-type tags fields)))
+      (condition-case err
+          (progn
+            (when (< (length fields) 1) (error "Note has no field"))
+            (anki-editor--push-note note)
+            (push '(status . success) note)
+            )
+        (error
+         (push '(status . failed) note)
+         (push `(reason . ,(error-message-string err)) note)))
+      (push note org-ankieditor-note-status-list)
+      )
+      ;; Prepare for next note
+      (plist-put info :anki-fields nil)
+      "") ; Act by sideeffect
+     (t
+      ;; New field for the current note
+      ;; TODO: Check for duplicate field
+      (let ((field-name (substring-no-properties (org-element-property :raw-value headline))))
+        (when (alist-get field-name (plist-get info :anki-fields)  nil nil #'string=)
+          (error "Duplicate field"))
+        (plist-put info :anki-fields (cons (cons field-name contents) (plist-get info :anki-fields)))
+          
+        ;; Allow headings in fields. Copied from ox-html
+        (unless (org-element-property :footnote-section-p headline)
+          (let* ((numberedp (org-export-numbered-headline-p headline info))
+                 (numbers (org-export-get-headline-number headline info))
+                 (level (+ (org-export-get-relative-level headline info)
+                           (1- (plist-get info :html-toplevel-hlevel))))
+                 (todo (and (plist-get info :with-todo-keywords)
+                            (let ((todo (org-element-property :todo-keyword headline)))
+                              (and todo (org-export-data todo info)))))
+                 (todo-type (and todo (org-element-property :todo-type headline)))
+                 (priority (and (plist-get info :with-priority)
+                                (org-element-property :priority headline)))
+                 (text (org-export-data (org-element-property :title headline) info))
+                 (tags (and (plist-get info :with-tags)
+                            (org-export-get-tags headline info)))
+                 (full-text (funcall (plist-get info :html-format-headline-function)
+                                     todo todo-type priority text tags info))
+                 (contents (or contents ""))
+	             (ids (delq nil
+                            (list (org-element-property :CUSTOM_ID headline)
+                                  (org-export-get-reference headline info)
+                                  (org-element-property :ID headline))))
+                 (preferred-id (car ids))
+                 (extra-ids
+	              (mapconcat
+	               (lambda (id)
+	                 (org-html--anchor
+		              (if (org-uuidgen-p id) (concat "ID-" id) id)
+		              nil nil info))
+	               (cdr ids) "")))
+            (if (org-export-low-level-p headline info)
+                ;; This is a deep sub-tree: export it as a list item.
+                (let* ((html-type (if numberedp "ol" "ul")))
+	              (concat
+	               (and (org-export-first-sibling-p headline info)
+		                (apply #'format "<%s class=\"org-%s\">\n"
+			                   (make-list 2 html-type)))
+	               (org-html-format-list-item
+                    contents (if numberedp 'ordered 'unordered)
+		            nil info nil
+                    (concat (org-html--anchor preferred-id nil nil info)
+                            extra-ids
+                            full-text)) "\n"
+	                        (and (org-export-last-sibling-p headline info)
+		                         (format "</%s>\n" html-type))))
+	          ;; Standard headline.  Export it as a section.
+              (let ((extra-class (org-element-property :HTML_CONTAINER_CLASS headline))
+                    (first-content (car (org-element-contents headline))))
+                (format "<%s id=\"%s\" class=\"%s\">%s%s</%s>\n"
+                        (org-html--container headline info)
+                        (concat "outline-container-"
+			                    (org-export-get-reference headline info))
+                        (concat (format "outline-%d" level)
+                                (and extra-class " ")
+                                extra-class)
+                        (format "\n<h%d id=\"%s\">%s%s</h%d>\n"
+                                level
+                                preferred-id
+                                extra-ids
+                                (concat
+                                 (and numberedp
+                                      (format
+                                       "<span class=\"section-number-%d\">%s</span> "
+                                       level
+                                       (mapconcat #'number-to-string numbers ".")))
+                                 full-text)
+                                level)
+                        ;; When there is no section, pretend there is an
+                        ;; empty one to get the correct <div
+                        ;; class="outline-...> which is needed by
+                        ;; `org-info.js'.
+                        (if (eq (org-element-type first-content) 'section) contents
+                          (concat (org-html-section first-content "" info) contents))
+                        (org-html--container headline info))))))))))
 
 
 (defun anki-editor-map-note-entries (func &optional match scope &rest skip)
@@ -768,7 +783,7 @@ holding contextual information."
      (when .error (error .error))
      .result))
 
-(defun org-anki-export-all
+(defun org-ankieditor-export-all
   (&optional async subtreep visible-only body-only ext-plist)
   "Export current buffer to an HTML buffer.
 
@@ -801,7 +816,7 @@ is non-nil."
   (interactive)
    (let* ((org-footnote-section nil)
           (org-buffer-name (buffer-name)))
-     (setq org-anki-note-status-list nil)
+     (setq org-ankieditor-note-status-list nil)
      (org-with-wide-buffer
       (anki-editor-map-note-entries
        (lambda ()
@@ -814,10 +829,10 @@ is non-nil."
        (lambda ()
          (let ((success-notes
                 (-keep (lambda (note) (and (eq (alist-get 'status note) 'success) note))
-                       org-anki-note-status-list))
+                       org-ankieditor-note-status-list))
                (failed-notes
                 (-keep (lambda (note) (and (eq (alist-get 'status note) 'failed) note))
-                       org-anki-note-status-list)))
+                       org-ankieditor-note-status-list)))
            (erase-buffer)
            (insert (format "* %d success\n" (length success-notes)))
            (insert (format "* %d failed\n" (length failed-notes)))
@@ -832,10 +847,10 @@ is non-nil."
            (org-mode)
            )))
      (with-current-buffer org-buffer-name
-       (sort org-anki-note-status-list (lambda (a b)
+       (sort org-ankieditor-note-status-list (lambda (a b)
                                          (> (alist-get 'begin a)
                                             (alist-get 'begin b))))
-      (mapcar #'insert-note-status-in-drawer org-anki-note-status-list)
+      (mapcar #'insert-note-status-in-drawer org-ankieditor-note-status-list)
       )))
 
 (defun insert-note-status-in-drawer (note)
@@ -881,7 +896,7 @@ The result is the path to the newly stored media file."
          (data . ,content))))
     media-file-name))
 
-(defun org-anki-link (link desc info)
+(defun org-ankieditor-link (link desc info)
   "When LINK is a link to local file, transcodes it to html and stores the target file to Anki, otherwise calls OLDFUN for help.
 The implementation is borrowed from anki-editor which is borrowed
 from ox-html."
@@ -945,25 +960,27 @@ from ox-html."
 
 (org-export-define-derived-backend 'anki 'html
   :translate-alist
-  '((headline . org-anki-headline)
-    (template . org-anki-template)
-    (inner-template . org-anki-inner-template)
-    (link . org-anki-link))
+  '((headline . org-ankieditor-headline)
+    (template . org-ankieditor-template)
+    (inner-template . org-ankieditor-inner-template)
+    (link . org-ankieditor-link)
+    (latex-fragment . anki-editor--ox-latex)
+    (latex-environment . anki-editor--ox-latex))
   :filters-alist '()
   :menu-entry
   '(?a "Export to Anki"
-       ((?a "Export all cards" org-anki-export-all)
-        (?f "Export failed cards" org-anki-export-failed)))
+       ((?a "Export all cards" org-ankieditor-export-all)
+        (?f "Export failed cards" org-ankieditor-export-failed)))
   :options-alist
   ;; Commented options are the same as in ox-html
   '(
     ;; (:html-doctype "HTML_DOCTYPE" nil org-html-doctype)
-    (:html-container "HTML_CONTAINER" nil org-anki-container-element)
+    (:html-container "HTML_CONTAINER" nil org-ankieditor-container-element)
     (:description "DESCRIPTION" nil nil nil)
     (:keywords "KEYWORDS" nil nil nil)
-    (:html-html5-fancy nil "html5-fancy" org-anki-html5-fancy)
-    (:html-link-use-abs-url nil "html-link-use-abs-url" org-anki-link-use-abs-url)
-    (:html-link-home "HTML_LINK_HOME" nil org-anki-link-home)
+    (:html-html5-fancy nil "html5-fancy" org-ankieditor-html5-fancy)
+    (:html-link-use-abs-url nil "html-link-use-abs-url" org-ankieditor-link-use-abs-url)
+    (:html-link-home "HTML_LINK_HOME" nil org-ankieditor-link-home)
     ;; (:html-mathjax "HTML_MATHJAX" nil "" space)
     (:html-postamble nil "html-postamble" nil)
     (:html-preamble nil "html-preamble" nil)
@@ -974,31 +991,31 @@ from ox-html."
      nil "html-style" nil)
     (:html-head-include-scripts nil "html-scripts" nil)
     (:html-allow-name-attribute-in-anchors
-     nil nil org-anki-allow-name-attribute-in-anchors)
-    (:html-divs nil nil org-anki-divs)
-    (:html-checkbox-type nil nil org-anki-checkbox-type)
-    (:html-extension nil nil org-anki-extension)
-    (:html-footnote-format nil nil org-anki-footnote-format)
-    (:html-footnote-separator nil nil org-anki-footnote-separator)
-    (:html-footnotes-section nil nil org-anki-footnotes-section)
-    (:html-format-drawer-function nil nil org-anki-format-drawer-function)
-    (:html-format-headline-function nil nil org-anki-format-headline-function)
+     nil nil org-ankieditor-allow-name-attribute-in-anchors)
+    (:html-divs nil nil org-ankieditor-divs)
+    (:html-checkbox-type nil nil org-ankieditor-checkbox-type)
+    (:html-extension nil nil org-ankieditor-extension)
+    (:html-footnote-format nil nil org-ankieditor-footnote-format)
+    (:html-footnote-separator nil nil org-ankieditor-footnote-separator)
+    (:html-footnotes-section nil nil org-ankieditor-footnotes-section)
+    (:html-format-drawer-function nil nil org-ankieditor-format-drawer-function)
+    (:html-format-headline-function nil nil org-ankieditor-format-headline-function)
     (:html-format-inlinetask-function
-     nil nil org-anki-format-inlinetask-function)
+     nil nil org-ankieditor-format-inlinetask-function)
     (:html-home/up-format nil nil nil)
-    (:html-indent nil nil org-anki-indent)
+    (:html-indent nil nil org-ankieditor-indent)
     (:html-infojs-options nil nil nil)
     (:html-infojs-template nil nil nil)
-    (:html-inline-image-rules nil nil org-anki-inline-image-rules)
+    (:html-inline-image-rules nil nil org-ankieditor-inline-image-rules)
     ;; (:html-link-org-files-as-html nil nil org-html-link-org-files-as-html)
-    ;; (:html-mathjax-options nil nil org-anki-mathjax-options)
+    ;; (:html-mathjax-options nil nil org-ankieditor-mathjax-options)
     ;; (:html-mathjax-template nil nil org-html-mathjax-template)
     ;; (:html-metadata-timestamp-format nil nil org-html-metadata-timestamp-format)
     (:html-postamble-format nil nil nil)
     (:html-preamble-format nil nil nil)
     ;; (:html-table-align-individual-fields
     ;;  nil nil org-html-table-align-individual-fields)
-    (:html-table-caption-above nil nil org-anki-table-caption-above)
+    (:html-table-caption-above nil nil org-ankieditor-table-caption-above)
     ;; (:html-table-data-tags nil nil org-html-table-data-tags)
     ;; (:html-table-header-tags nil nil org-html-table-header-tags)
     ;; (:html-table-use-header-tags-for-first-column
@@ -1022,10 +1039,11 @@ from ox-html."
     ;; (:infojs-opt "INFOJS_OPT" nil nil)
     ;; Redefine regular options.
     ;; (:creator "CREATOR" nil org-html-creator-string)
-    (:with-latex nil "tex" org-anki-with-latex)
+    (:with-latex nil "tex" org-ankieditor-with-latex)
     ;; Retrieve LaTeX header for fragments.
     ;; (:latex-header "LATEX_HEADER" nil nil newline)
-    ))
+    )
+  )
 
 
 
