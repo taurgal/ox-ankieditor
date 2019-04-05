@@ -59,7 +59,7 @@
     (mapcar #'org-entry-restore-space values)))
 
 (defcustom anki-editor-ignored-org-tags
-  (append org-export-select-tags org-export-exclude-tags)
+  (append org-export-select-tags org-export-exclude-tags "deck" "note")
   "A list of Org tags that are ignored when constructing notes form entries."
   :type '(repeat string)
   :tag "Org tags not mapped to Anki tags"
