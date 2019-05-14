@@ -37,12 +37,34 @@
 (require 'ox-html)
 (require 'request)
 
+(require 'jaxtranslate)
+
 (defconst anki-editor-prop-note-type "ANKI_NOTE_TYPE")
 (defconst anki-editor-prop-note-id "ANKI_NOTE_ID")
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
 (defconst anki-editor-prop-deck "ANKI_DECK")
 (defconst anki-editor-org-tag-regexp "^\\([[:alnum:]_@#%]+\\)+$")
 (defconst anki-editor-prop-tags "ANKI_TAGS")
+
+(defvar org-ankieditor-note-status-list nil)
+(defvar org-ankieditor-current-note-number 0)
+(defvar org-ankieditor-only-one-push t)
+
+(defun anki-editor--anki-connect-invoke-queue ()
+  (let (action-queue)
+    (lambda (note &optional action params handler)
+      (cond
+       ((eq action 'apply)
+        (when action-queue
+          (apply #'anki-editor--anki-connect-invoke-multi (nreverse action-queue))
+          (setq action-queue nil)))
+       (action
+          (push (cons (anki-editor--anki-connect-action action params 5)
+                      `((handler . ,handler)(note . ,note))) action-queue))
+       (t
+        (error "Unkown queue action"))
+        ))))
+(setq org-anki-queue nil)
 
 (defun anki-editor--get-tags ()
   (let ((tags (anki-editor--entry-get-multivalued-property-with-inheritance
@@ -59,7 +81,7 @@
     (mapcar #'org-entry-restore-space values)))
 
 (defcustom anki-editor-ignored-org-tags
-  (append org-export-select-tags org-export-exclude-tags "deck" "note")
+  (append org-export-select-tags org-export-exclude-tags '("deck" "note"))
   "A list of Org tags that are ignored when constructing notes form entries."
   :type '(repeat string)
   :tag "Org tags not mapped to Anki tags"
@@ -107,12 +129,6 @@ See https://apps.ankiweb.net/docs/manual.html#latex-conflicts."
   :tag "List of tags not to use as Anki tags"
   :type '(repeat string))
 
-(defconst anki-editor--ox-anki-html-backend
-  (org-export-create-backend
-   :parent 'html
-   :transcoders '((latex-fragment . anki-editor--ox-latex)
-                  (latex-environment . anki-editor--ox-latex))))
-
 (defconst anki-editor--ox-export-ext-plist
   '(:with-toc nil :anki-editor-mode t))
 
@@ -142,61 +158,6 @@ See https://apps.ankiweb.net/docs/manual.html#latex-conflicts."
 (defun anki-editor--wrap-div (content)
   (format "<div>%s</div>" content))
 
-(defun anki-editor--ox-latex (latex _contents _info)
-  "Transcode LATEX from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (let ((code (org-remove-indentation (org-element-property :value latex))))
-    (setq code
-          (pcase (org-element-type latex)
-            ('latex-fragment (anki-editor--translate-latex-delimiters code))
-            ('latex-environment (anki-editor--wrap-latex
-                                 (mapconcat #'anki-editor--wrap-div
-                                            (split-string (org-html-encode-plain-text code) "\n")
-                                            "")))))
-
-    (if anki-editor-break-consecutive-braces-in-latex
-        (replace-regexp-in-string "}}" "} } " code)
-      code)))
-
-(defun org-ankieditor--build-fields (heading)
-  "Build a list of fields from subheadings of current heading.
-
-Each element of this list is a cons cell representing a field,
-the car being the field name and the cdr the field content."
-  (save-excursion
-  (let (fields
-        (point-of-last-child (point)))
-    (org-element-map heading 'headline
-      (lambda (field-heading)
-        (unless (eq heading field-heading)
-          (let ((field-name (org-element-property :raw-value field-heading))
-                (contents-begin (org-element-property :contents-begin field-heading))
-                (contents-end (org-element-property :contents-end field-heading)))
-            (push (cons field-name
-                        (cond
-                         ((and contents-begin contents-end)
-                          (or (org-export-string-as
-                               (buffer-substring
-                                contents-begin
-                                ;; in case the buffer is narrowed,
-                                ;; e.g. by `org-map-entries' when
-                                ;; scope is `tree'
-                                (min (point-max) contents-end))
-                               anki-editor--ox-anki-html-backend
-                               t
-                               anki-editor--ox-export-ext-plist)
-                              
-                              ;; 8.2.10 version of
-                              ;; `org-export-filter-apply-functions'
-                              ;; returns nil for an input of empty
-                              ;; string, which causes AnkiConnect to
-                              ;; fail
-                              ""))
-                         (t "")))
-                  fields)))))
-    (reverse fields))))
-
-
 (defgroup org-export-anki nil
   "Options for exporting Org mode files to HTML."
   :tag "Org Export HTML"
@@ -216,8 +177,8 @@ option."
 (defun anki-editor--set-note-id (id errmsg action note)
   (unless (or id errmsg)
     (error "Note creation failed for unknown reason"))
-  (car action)  
   (setcdr (assq 'note-id note) id)
+  (push `(note-id . ,id) note)
   (and errmsg (push `(reason . ,errmsg) note)))
 
 (defun org-ankieditor-notesinfo-handler (result errmsg action note)
@@ -228,35 +189,19 @@ option."
                                    anki-editor-ignored-org-tags))
          (tags-to-remove (-difference (-difference (alist-get 'tags existing-note)
                                                    (alist-get 'tags note))
-                                      anki-editor-protected-tags))
-         (tag-queue (anki-editor--anki-connect-invoke-queue)))
+                                      anki-editor-protected-tags)))
     (when tags-to-add
-      (funcall tag-queue
+      (funcall org-anki-queue
                note
                'addTags `((notes . (,(alist-get 'note-id note)))
                           (tags . ,(mapconcat #'identity tags-to-add " ")))))    
     (when tags-to-remove
-      (funcall tag-queue
+      (funcall org-anki-queue
                note
                'removeTags `((notes . (,(alist-get 'note-id note)))
                              (tags . ,(mapconcat #'identity tags-to-remove " ")))))
-    
-    (funcall tag-queue note)))
+    ))
 
-(defun anki-editor--update-note (note)
-  "Request AnkiConnect for updating fields and tags of NOTE."
-  (let ((queue (anki-editor--anki-connect-invoke-queue)))
-    (funcall queue
-             note
-             'updateNoteFields
-             `((note . ,(anki-editor--anki-connect-map-note note))))
-    (funcall queue
-             note
-             'notesInfo
-             `((notes . (,(alist-get 'note-id note))))
-             #'org-ankieditor-notesinfo-handler
-             )
-    (funcall queue note)))
 
 (defun anki-editor--anki-connect-map-note (note)
   "Convert NOTE to the form that AnkiConnect accepts."
@@ -316,11 +261,12 @@ option."
     (and errmsg
          (push '(status . failed) note)
          (push `(reason . ,errmsg) note)
-         (error errmsg))
+         (message "%s (note at %d)" errmsg (alist-get 'begin note)))
     (and handler (funcall handler result errmsg action note))
     ))
 
 (defun anki-editor--anki-connect-invoke-multi (&rest actions)
+  (message "Invoking anki (%d actions); please wait" (length actions))
   (let* ((results-list (anki-editor--anki-connect-invoke-result
                     "multi" `((actions . ,(mapcar #'car actions)))))
          (result-action-note-triplet
@@ -329,11 +275,14 @@ option."
                      (mapcar (lambda (x) (alist-get 'note (cdr x))) actions)
                      ))
          (handler-list (mapcar (lambda (x) (alist-get 'handler (cdr x))) actions) ))
+    (message "%s" "Invoking Anki: done")
+    (message "%s" "Invoking note handlers (assigning IDs, ...)")
     (-zip-with
      #'anki-editor-maybe-call-handler
      result-action-note-triplet
      handler-list
-     )))
+     )
+    (message "%s" "Invoking handlers: done")))
 
 (defun anki-editor--anki-connect-action (action &optional params version)
   (let (a)
@@ -343,31 +292,31 @@ option."
       (push `(params . ,params) a))
     (push `(action . ,action) a)))
 
-(defun anki-editor--anki-connect-invoke-queue ()
-  (let (action-queue)
-    (lambda (note &optional action params handler)
-      (if action
-          (push (cons (anki-editor--anki-connect-action action params 5)
-                      `((handler . ,handler)(note . ,note))) action-queue)
-        (when action-queue
-          (apply #'anki-editor--anki-connect-invoke-multi (nreverse action-queue))
-          (setq action-queue nil))))))
+(defun anki-editor--update-note (note queue)
+  "Request AnkiConnect for updating fields and tags of NOTE."
+  (funcall queue
+           note
+           'updateNoteFields
+           `((note . ,(anki-editor--anki-connect-map-note note))))
+  (funcall queue
+           note
+           'notesInfo
+           `((notes . (,(alist-get 'note-id note))))
+           #'org-ankieditor-notesinfo-handler
+           ))
 
-
-(defun anki-editor--create-note (note)
+(defun anki-editor--create-note (note queue)
   "Request AnkiConnect for creating NOTE."
-  (let ((queue (anki-editor--anki-connect-invoke-queue)))
-    (when anki-editor-create-decks
-      (funcall queue
-               note
-               'createDeck
-               `((deck . ,(alist-get 'deck note)))))
+  (when anki-editor-create-decks
+    (funcall queue
+             note
+             'createDeck
+             `((deck . ,(alist-get 'deck note)))))
     (funcall queue
              note
              'addNote
              `((note . ,(anki-editor--anki-connect-map-note note)))
-             #'anki-editor--set-note-id)
-    (funcall queue note)))
+             #'anki-editor--set-note-id))
 
 (defgroup org-export-anki nil
   "Options for exporting Org mode files to HTML."
@@ -635,6 +584,7 @@ alist with field names as keys and content strings as values."
   (let* ((custom-id (org-element-property :CUSTOM_ID headline))
          (begin (org-element-property :begin headline)))
 
+    (unless custom-id (error "Missing CUSTOM_ID tag (%d)" begin))
     (unless deck (error "No deck specified"))
     (unless note-type (error "Missing note type"))
     (unless fields (error "Missing fields"))
@@ -647,11 +597,11 @@ alist with field names as keys and content strings as values."
       (custom-id . ,custom-id)
       (begin . ,begin))))
 
-(defun anki-editor--push-note (note)
+(defun anki-editor--push-note (note queue)
   "Request AnkiConnect for updating or creating NOTE."
   (if (alist-get 'note-id note)
-      (anki-editor--update-note note)
-    (anki-editor--create-note note)
+      (anki-editor--update-note note queue)
+    (anki-editor--create-note note queue)
     ))
 
 (defun org-ankieditor-headline (headline contents info)
@@ -672,7 +622,7 @@ holding contextual information."
            (fields (plist-get info :anki-fields))
            (note
             (org-ankieditor-note-from-field-alist
-             headline deck note-id note-type tags fields)))
+             headline deck note-id note-type tags fields)))      
       (condition-case err
           (progn
             (when (< (length fields) 1) (error "Note has no field"))
@@ -680,10 +630,11 @@ holding contextual information."
              "Processing note %d at position %d"
              (incf org-ankieditor-current-note-number)
              (point))
-            (anki-editor--push-note note)
+            (anki-editor--push-note note org-anki-queue)
             (push '(status . success) note)
             )
         (error
+         (message "Error %s at note" reason)
          (push '(status . failed) note)
          (push `(reason . ,(error-message-string err)) note)))
       (push note org-ankieditor-note-status-list)
@@ -693,11 +644,14 @@ holding contextual information."
       "") ; Act by sideeffect
      (t
       ;; New field for the current note
-      ;; TODO: Check for duplicate field
       (let ((field-name (substring-no-properties (org-element-property :raw-value headline))))
         (when (alist-get field-name (plist-get info :anki-fields)  nil nil #'string=)
-          (error "Duplicate field"))
-        (plist-put info :anki-fields (cons (cons field-name contents) (plist-get info :anki-fields)))
+          (error
+           "Duplicate field ('%s') at position '%s'"
+           field-name
+           (org-element-property :raw-value (org-element-property :parent headline))
+           ))
+        (plist-put info :anki-fields (nconc (plist-get info :anki-fields) (list (cons field-name contents))))
           
         ;; Allow headings in fields. Copied from ox-html
         (unless (org-element-property :footnote-section-p headline)
@@ -794,84 +748,11 @@ holding contextual information."
      (when .error (error .error))
      .result))
 
-(defun org-ankieditor-export-all
-  (&optional async subtreep visible-only body-only ext-plist)
-  "Export current buffer to an HTML buffer.
-
-If narrowing is active in the current buffer, only export its
-narrowed part.
-
-If a region is active, export that region.
-
-A non-nil optional argument ASYNC means the process should happen
-asynchronously.  The resulting buffer should be accessible
-through the `org-export-stack' interface.
-
-When optional argument SUBTREEP is non-nil, export the sub-tree
-at point, extracting information from the headline properties
-first.
-
-When optional argument VISIBLE-ONLY is non-nil, don't export
-contents of hidden elements.
-
-When optional argument BODY-ONLY is non-nil, only write code
-between \"<body>\" and \"</body>\" tags.
-
-EXT-PLIST, when provided, is a property list with external
-parameters overriding Org default settings, but still inferior to
-file-local settings.
-
-Export is done in a buffer named \"*Org HTML Export*\", which
-will be displayed when `org-export-show-temporary-export-buffer'
-is non-nil."
-  (interactive)
-   (let* ((org-footnote-section nil)
-          (org-buffer-name (buffer-name))
-          (org-ankieditor-current-note-number 0)
-          org-ankieditor-note-status-list)
-     (org-with-wide-buffer
-      (anki-editor-map-note-entries
-       (lambda ()
-         (anki-editor--clear-failure-reason)
-         (unless (org-entry-get (point) "CUSTOM_ID")
-           (org-entry-put (point) "CUSTOM_ID" (org-id-uuid))))
-       ))
-     (org-export-to-buffer 'anki "*Org Anki Export*"
-       async subtreep visible-only body-only ext-plist
-       (lambda ()
-         (let ((success-notes
-                (-keep (lambda (note) (and (eq (alist-get 'status note) 'success) note))
-                       org-ankieditor-note-status-list))
-               (failed-notes
-                (-keep (lambda (note) (and (eq (alist-get 'status note) 'failed) note))
-                       org-ankieditor-note-status-list)))
-           (erase-buffer)
-           (insert (format "* %d success\n" (length success-notes)))
-           (insert (format "* %d failed\n" (length failed-notes)))
-           (insert
-            (mapconcat
-             (lambda (note)
-               (format "   - [[file:%s::#%s][%s]]"
-                       org-buffer-name
-                       (alist-get 'custom-id note)
-                       (alist-get 'reason note)))
-             failed-notes
-             "\n"))
-           (org-mode)
-           )))
-     (org-unlogged-message "%s" "Inserting notes status in org properties")
-     (with-current-buffer org-buffer-name
-       (sort org-ankieditor-note-status-list (lambda (a b)
-                                         (> (alist-get 'begin a)
-                                            (alist-get 'begin b))))
-      (mapcar #'insert-note-status-in-drawer org-ankieditor-note-status-list)
-      )
-     (org-unlogged-message "%s" "Done")))
-
 (defun insert-note-status-in-drawer (note)
   (let* ((status (alist-get 'status note))
          (note-custom-id (alist-get 'custom-id note))
          (note-id (alist-get 'note-id note)))
+    (setq aa note)
     (cond
      ((eq status 'failed)
       (org-entry-put
@@ -891,7 +772,10 @@ is non-nil."
 (defun anki-editor--anki-connect-store-media-file (path)
   "Store media file for PATH, which is an absolute file name.
 The result is the path to the newly stored media file."
-  (let* ((hash (secure-hash 'sha1 path))
+  (let* ((hash (secure-hash 'sha1
+                             (with-temp-buffer
+                               (insert-file-contents path)
+                               (buffer-string))))
          (media-file-name (format "%s-%s%s"
                                   (file-name-base path)
                                   hash
@@ -904,7 +788,7 @@ The result is the path to the newly stored media file."
       (setq content (base64-encode-string
 		     (with-temp-buffer
 		       (insert-file-contents path)
-		       (buffer-string))))
+               (encode-coding-string (buffer-string) last-coding-system-used))))
       (anki-editor--anki-connect-invoke-result
        "storeMediaFile"
        `((filename . ,media-file-name)
@@ -973,14 +857,125 @@ from ox-html."
            (t (throw 'giveup nil)))))
       (org-html-link link desc info)))
 
+(defun ox-ankieditor-org-id (buffer id)
+  "Switch to the buffer containing the entry with id ID.
+Move the cursor to that entry in that buffer."
+  (pop-to-buffer-same-window buffer)
+  (org-find-property "CUSTOM_ID" id)
+  (org-show-context))
+
+(defun org-html--svg-image (source attributes info)
+  "Return \"object\" embedding svg file SOURCE with given ATTRIBUTES.
+INFO is a plist used as a communication channel.
+
+The special attribute \"fallback\" can be used to specify a
+fallback image file to use if the object embedding is not
+supported.  CSS class \"org-svg\" is assigned as the class of the
+object unless a different class is specified with an attribute."
+  (let ((fallback (plist-get attributes :fallback))
+	(attrs (org-html--make-attribute-string
+		(org-combine-plists
+                 ;; Remove fallback attribute, which is not meant to
+                 ;; appear directly in the attributes string, and
+                 ;; provide a default class if none is set.
+                 '(:class "org-svg") attributes '(:fallback nil)))))
+    (format "<object type=\"image/svg+xml\" data=\"%s\" %s>\n%s</object>"
+	    source
+	    attrs
+	    (if fallback
+		(org-html-close-tag
+		 "img" (format "src=\"%s\" %s" fallback attrs) info)
+        (format "Sorry, your browser does not support SVG (%s)." source)))))
+
+(defun org-ankieditor-export-all
+  (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to an HTML buffer.
+
+If narrowing is active in the current buffer, only export its
+narrowed part.
+
+If a region is active, export that region.
+
+A non-nil optional argument ASYNC means the process should happen
+asynchronously.  The resulting buffer should be accessible
+through the `org-export-stack' interface.
+
+When optional argument SUBTREEP is non-nil, export the sub-tree
+at point, extracting information from the headline properties
+first.
+
+When optional argument VISIBLE-ONLY is non-nil, don't export
+contents of hidden elements.
+
+When optional argument BODY-ONLY is non-nil, only write code
+between \"<body>\" and \"</body>\" tags.
+
+EXT-PLIST, when provided, is a property list with external
+parameters overriding Org default settings, but still inferior to
+file-local settings.
+
+Export is done in a buffer named \"*Org HTML Export*\", which
+will be displayed when `org-export-show-temporary-export-buffer'
+is non-nil."
+  (interactive)
+  (setq org-anki-queue (anki-editor--anki-connect-invoke-queue))
+   (let* ((org-footnote-section nil)
+          (org-buffer-name (buffer-name))
+          (nbr-inserted-custom-id 0))
+     (setq org-ankieditor-note-status-list nil
+           org-ankieditor-current-note-number 0)
+     (org-with-wide-buffer
+      (anki-editor-map-note-entries
+       (lambda ()
+         (anki-editor--clear-failure-reason)
+         (unless (org-entry-get (point) "CUSTOM_ID")
+           (incf nbr-inserted-custom-id)
+           (org-entry-put (point) "CUSTOM_ID" (org-id-uuid))))
+       ))
+     (org-unlogged-message "Inserted %d :CUSTOM_ID: tags" nbr-inserted-custom-id)
+     (when translate-use-translate (translate-scan-and-cache))
+     (org-export-to-buffer 'anki "*Org Anki Export*"
+       async subtreep visible-only body-only ext-plist
+       (lambda ()
+         (when org-ankieditor-only-one-push
+           (funcall org-anki-queue nil 'apply))
+         (let ((success-notes
+                (-keep (lambda (note) (and (eq (alist-get 'status note) 'success) note))
+                       org-ankieditor-note-status-list))
+               (failed-notes
+                (-keep (lambda (note) (and (eq (alist-get 'status note) 'failed) note))
+                       org-ankieditor-note-status-list)))
+           (erase-buffer)
+           (insert (format "* %d success\n" (length success-notes)))
+           (insert (format "* %d failed\n" (length failed-notes)))
+           (insert
+            (mapconcat
+             (lambda (note)
+               (format "   - [[elisp:(ox-ankieditor-org-id \"%s\" \"%s\")][%s]]"
+                       org-buffer-name
+                       (alist-get 'custom-id note)
+                       (alist-get 'reason note)))
+             failed-notes
+             "\n"))
+           (org-mode)
+           )))
+     (org-unlogged-message "%s" "Inserting notes status in org properties")
+     (with-current-buffer org-buffer-name
+       (sort org-ankieditor-note-status-list (lambda (a b)
+                                         (> (alist-get 'begin a)
+                                            (alist-get 'begin b))))
+      (mapcar #'insert-note-status-in-drawer org-ankieditor-note-status-list)
+      )
+     (org-unlogged-message "%s" "Done")))
+
 (org-export-define-derived-backend 'anki 'html
   :translate-alist
   '((headline . org-ankieditor-headline)
     (template . org-ankieditor-template)
     (inner-template . org-ankieditor-inner-template)
     (link . org-ankieditor-link)
-    (latex-fragment . anki-editor--ox-latex)
-    (latex-environment . anki-editor--ox-latex))
+    (latex-fragment . anki-editor--ox-latex-to-html)
+    (latex-environment . anki-editor--ox-latex-to-html))
   :filters-alist '()
   :menu-entry
   '(?a "Export to Anki"
@@ -1060,7 +1055,14 @@ from ox-html."
     )
   )
 
-
+(defun org-ankieditor-clear-all-id ()
+  (interactive)
+   (replace-regexp
+    "^[ \\t]*:\\(ANKI_NOTE_ID\\|CUSTOM_ID\\):.*\n"
+    ""
+    nil
+    (point-min)
+    (point-max)))
 
 (provide 'ox-ankieditor)
 
